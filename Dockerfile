@@ -110,44 +110,14 @@ RUN apt-get update && \
 FROM kernel_build as guest_kernel_build
 
 COPY guest_config /linux/.config
-
-
-WORKDIR /linux/
-RUN ./scripts/config --set-str LOCALVERSION "snp-guest"
-RUN ./scripts/config --disable LOCALVERSION_AUTO
-RUN ./scripts/config --enable  EXPERT
-RUN ./scripts/config --enable  DEBUG_INFO
-RUN ./scripts/config --enable  DEBUG_INFO_REDUCED
-RUN ./scripts/config --enable  AMD_MEM_ENCRYPT
-RUN ./scripts/config --disable AMD_MEM_ENCRYPT_ACTIVE_BY_DEFAULT
-RUN ./scripts/config --enable  KVM_AMD_SEV
-RUN ./scripts/config --module  CRYPTO_DEV_CCP_DD
-RUN ./scripts/config --disable SYSTEM_TRUSTED_KEYS
-RUN ./scripts/config --disable SYSTEM_REVOCATION_KEYS
-RUN ./scripts/config --disable MODULE_SIG_KEY
-RUN ./scripts/config --module  SEV_GUEST
-RUN ./scripts/config --disable IOMMU_DEFAULT_PASSTHROUGH
-RUN ./scripts/config --disable PREEMPT_COUNT
-RUN ./scripts/config --disable PREEMPTION
-RUN ./scripts/config --disable PREEMPT_DYNAMIC
-RUN ./scripts/config --disable DEBUG_PREEMPT
-RUN ./scripts/config --enable  CGROUP_MISC
-RUN ./scripts/config --module  X86_CPUID
-RUN ./scripts/config --disable UBSAN
-RUN yes "" | make -j 10 olddefconfig
-RUN make -j20
-
+COPY linux_guest_configure.sh /linux_guest_configure.sh
 
 FROM kernel_build as host_kernel_build
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="$HOME/.cargo/bin:${PATH}"
 RUN ${HOME}/.cargo/bin/rustup default stable
-WORKDIR linux/
-COPY host_config .config
-RUN ./scripts/config --set-str LOCALVERSION "snp-host"
-RUN yes "" | make -j 10 olddefconfig
-RUN make -j20
-RUN make -j20 bindeb-pkg
+COPY host_config /host_config
+COPY linux_host_configure.sh /linux_host_configure.sh
 
 # Qemu
 FROM base as qemu_build
@@ -158,12 +128,6 @@ RUN apt-get update && \
 		pkg-config \
 		libglib2.0-dev \
 		libpixman-1-dev
-RUN git clone https://github.com/coconut-svsm/qemu && cd qemu && git checkout svsm-v8.0.0
-
-WORKDIR qemu
-RUN ./configure --prefix=/work/bin/qemu-svsm/ --target-list=x86_64-softmmu
-RUN ninja -C build/
-RUN make install
 
 # EDK2
 FROM base as edk2_build
@@ -175,13 +139,9 @@ RUn apt-get update && \
 	nasm \
 	iasl
 WORKDIR /
-RUN git clone https://github.com/coconut-svsm/edk2.git && cd edk2 && git checkout svsm && git submodule init && git submodule update
 
-WORKDIR /edk2
 RUN PYTHON3_ENABLE=TRUE PYTHON_COMMAND=python3 make -j16 -C BaseTools/
 RUN source ./edksetup.sh && build -a X64 -b DEBUG -t GCC5 -D DEBUG_ON_SERIAL_PORT -D DEBUG_VERBOSE -p OvmfPkg/OvmfPkgX64.dsc
-#RUN cp Build/OvmfX64/DEBUG_GCC5/FV/OVMF_CODE.fd /firmware/
-#RUN cp Build/OvmfX64/DEBUG_GCC5/FV/OVMF_VARS.fd /firmware/
 
 FROM registry.suse.com/suse/sle15:latest AS suse_base
 
