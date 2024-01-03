@@ -5,7 +5,7 @@ EDK2_DIR ?= "./edk2"
 QEMU_DIR ?= "./qemu"
 GUEST_LINUX ?= "./linux_guest"
 HOST_LINUX ?= "./linux_host"
-SVSM_DIR ?= "./svsm"
+SVSM_DIR ?= "./svsm-crap"
 
 BUILD_ARGS=--build-arg USER=${USER} --build-arg UID=${UID} --build-arg GID=${GID}
 DIRECTORY_MAPS = -v$(abspath ${EDK2_DIR}):/edk2 -v $(abspath ${QEMU_DIR}):/qemu -v $(abspath ${GUEST_LINUX}):/linux_guest -v $(abspath ${HOST_LINUX}):/linux_host -v $(abspath ${SVSM_DIR}):/svsm
@@ -90,10 +90,11 @@ svsm_docker:
 	docker build ${BUILD_ARGS} --target svsm_build -t svsm_build:latest . --network=host
 .PHONY:
 svsm_run: | svsm_docker
+	echo ${SVSM_DIR}
 	docker run --init --rm -d ${DIRECTORY_MAPS} --name svsm-${USER}-latest --network=host  svsm_build:latest sleep inf
 
 svsm_build:
-	docker exec -it --user ${USER} svsm-${USER}-latest /bin/bash -c "cd /svsm; cargo build"
+	docker exec -it --user ${USER} svsm-${USER}-latest /bin/bash -c "source ~/.bashrc; cd /svsm; cargo build"
 
 .PHONY:
 svsm_exec:| 
