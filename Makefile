@@ -5,7 +5,7 @@ EDK2_DIR ?= "./edk2"
 QEMU_DIR ?= "./qemu"
 GUEST_LINUX ?= "./linux_guest"
 HOST_LINUX ?= "./linux_host"
-SVSM_DIR ?= "./svsm-crap"
+SVSM_DIR ?= "../svsm"
 
 BUILD_ARGS=--build-arg USER=${USER} --build-arg UID=${UID} --build-arg GID=${GID}
 DIRECTORY_MAPS = -v$(abspath ${EDK2_DIR}):/edk2 -v $(abspath ${QEMU_DIR}):/qemu -v $(abspath ${GUEST_LINUX}):/linux_guest -v $(abspath ${HOST_LINUX}):/linux_host -v $(abspath ${SVSM_DIR}):/svsm
@@ -100,3 +100,12 @@ svsm_build:
 svsm_exec:| 
 	docker exec -it --user ${USER}  svsm-${USER}-latest /bin/bash || true
 
+## Run
+final_docker:
+	docker build ${BUILD_ARGS} --target final -t svsm_final:latest . --network=host
+
+final_run:
+	docker run --init --privileged --rm -d ${DIRECTORY_MAPS} --name svsm-final-${USER}-latest --network=host svsm_final:latest sleep inf
+
+final_exec:|
+	docker exec -it svsm-final-${USER}-latest /bin/bash || true

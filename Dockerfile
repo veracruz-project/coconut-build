@@ -109,7 +109,7 @@ RUN apt-get update && \
 
 FROM kernel_build as guest_kernel_build
 
-COPY guest_config /linux/.config
+COPY guest_config /guest_config
 COPY linux_guest_configure.sh /linux_guest_configure.sh
 
 FROM kernel_build as host_kernel_build
@@ -168,16 +168,10 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="$HOME/.cargo/bin:${PATH}"
 RUN ${HOME}/.cargo/bin/rustup install 1.74.1
 
-FROM ubuntu:22.04 as final
+FROM base as final
 RUN apt-get update && \
 	apt-get upgrade -y && \
 	apt-get install --no-install-recommends -y \
 		pkg-config \
 		libglib2.0-dev \
 		libpixman-1-dev
-COPY --from=edk2_build /edk2/Build/OvmfX64/DEBUG_GCC5/FV/OVMF_CODE.fd /work/firmware/
-COPY --from=edk2_build /edk2/Build/OvmfX64/DEBUG_GCC5/FV/OVMF_VARS.fd /work/firmware/
-COPY --from=qemu_build /work/bin/qemu-svsm /work/bin/qemu-svsm
-COPY --from=guest_kernel_build /linux/arch/x86/boot/bzImage /work/kernel/guest/
-COPY --from=host_kernel_build /linux/arch/x86/boot/bzImage /work/kernel/host/
-COPY --from=host_kernel_build /*.deb /work/kernel/host/
